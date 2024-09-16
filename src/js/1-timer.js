@@ -1,148 +1,103 @@
-'use strict';
-
-// Описаний в документації
 import flatpickr from 'flatpickr';
-// Додатковий імпорт стилів
 import 'flatpickr/dist/flatpickr.min.css';
-//import 'flatpickr/dist/themes/light.css';
-// Описаний у документації
 import iziToast from 'izitoast';
-// Додатковий імпорт стилів
 import 'izitoast/dist/css/iziToast.min.css';
-
-let userSelectedDate = 0;
-
-//let userSelectedDateUnixTimestamp;
-// https://nesin.io/blog/javascript-date-to-unix-timestamp
-
-// https://www.scaler.com/topics/javascript-disable-button/
-const startButton = document.querySelector('button');
-//console.log(startButton.disabled);
-const inputField = document.querySelector('input');
 
 const options = {
   enableTime: true,
   time_24hr: true,
   defaultDate: new Date(),
   minuteIncrement: 1,
-  //altInputClass: 'input',
   onClose(selectedDates) {
-    const dateNow = Date.now();
     userSelectedDate = selectedDates[0];
-    //userSelectedDateUnixTimestamp = userSelectedDate.getTime();
-    //console.log(userSelectedDate.getTime());
-    //console.log(dateNow);
-    if (userSelectedDate.getTime() < dateNow) {
-      //window.alert('Please choose a date in the future');
-      iziToast.error({
-        title: 'Error',
-        message: 'Please choose a date in the future',
-        position: 'topRight',
-        titleColor: '#fff',
-        titleSize: '16px',
-        titleLineHeight: '1.5',
-        messageColor: '#fff',
-        messageSize: '16px',
-        messageLineHeight: '1.5',
-        backgroundColor: '#ef4040',
-        theme: 'light',
-        iconUrl: 'izi-icon.svg', // зображення має бути у папці public
-        imageWidth: 24,
-      });
-      startButton.disabled = true;
-    } else {
-      startButton.disabled = false;
-    }
+    validateDate();
   },
 };
 
-const fp = flatpickr('input#datetime-picker', options);
+flatpickr('#datetime-picker', options);
 
-// Get the value of the "data-days" attribute
-//daysElement.innerText = '15';
+const startBtn = document.querySelector('[data-start]');
+const daysDisplay = document.querySelector('[data-days]');
+const hoursDisplay = document.querySelector('[data-hours]');
+const minutesDisplay = document.querySelector('[data-minutes]');
+const secondsDisplay = document.querySelector('[data-seconds]');
+const dateTimepicker = document.querySelector('#datetime-picker');
 
-//console.log(document.querySelector('.timer .field .value[data-days]'));
+let userSelectedDate = null;
 
-const interval = {
-  days: '03',
-  hours: '09',
-  minutes: '01',
-  seconds: '04',
-};
-
-function updateTimerInterface(interval) {
-  // Get the element with the "data-*" attributes
-  const daysElement = document.querySelector('.timer .field .value[data-days]');
-  const hoursElement = document.querySelector(
-    '.timer .field .value[data-hours]'
-  );
-  const minutesElement = document.querySelector(
-    '.timer .field .value[data-minutes]'
-  );
-  const secondsElement = document.querySelector(
-    '.timer .field .value[data-seconds]'
-  );
-
-  // set interface elements
-  daysElement.innerText = interval.days;
-  hoursElement.innerText = interval.hours;
-  minutesElement.innerText = interval.minutes;
-  secondsElement.innerText = interval.seconds;
-}
-
-function convertUnixTimeToTime(milliseconds) {
-  // ToDo use padStart function https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/padStart
-  function addZero(s) {
-    if (s.length === 1) {
-      s = '0' + s;
-    }
-    return s;
+function validateDate() {
+  if (userSelectedDate < Date.now()) {
+    iziToast.show({
+      title: 'Hey dear',
+      message: 'Please choose a date in the future',
+      position: 'topCenter',
+      closeOnEscape: true,
+      closeOnClick: true,
+    });
+    startBtn.disabled = true;
+  } else {
+    startBtn.disabled = false;
   }
-  // Отримання кількості днів, годин, хвилин та секунд
-  const days = Math.floor(milliseconds / (24 * 60 * 60 * 1000)).toString();
-  const hours = Math.floor(
-    (milliseconds % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000)
-  ).toString();
-  const minutes = Math.floor(
-    (milliseconds % (60 * 60 * 1000)) / (60 * 1000)
-  ).toString();
-  const seconds = Math.floor((milliseconds % (60 * 1000)) / 1000).toString();
-
-  // Повернення результату у вигляді об'єкта
-  return {
-    days: addZero(days),
-    hours: addZero(hours),
-    minutes: addZero(minutes),
-    seconds: addZero(seconds),
-  };
 }
 
-startButton.addEventListener('click', () => {
-  //console.log('Button click handler');
-  startButton.disabled = true;
-  inputField.disabled = true;
+function convertMs(ms) {
+  const second = 1000;
+  const minute = second * 60;
+  const hour = minute * 60;
+  const day = hour * 24;
 
-  // create interval
-  const intervalId = setInterval(() => {
-    const timeToGo = userSelectedDate - Date.now();
-    //console.log(timeToGo);
-    if (userSelectedDate - Date.now() > 0) {
-      updateTimerInterface(convertUnixTimeToTime(timeToGo));
-    } else {
-      startButton.disabled = false;
-      inputField.disabled = false;
-      clearInterval(intervalId);
+  const days = Math.floor(ms / day);
+  const hours = Math.floor((ms % day) / hour);
+  const minutes = Math.floor(((ms % day) % hour) / minute);
+  const seconds = Math.floor((((ms % day) % hour) % minute) / second);
+
+  return { days, hours, minutes, seconds };
+}
+
+function addLeadingZero(value) {
+  return String(value).padStart(2, '0');
+}
+
+function updateTimerFace({ days, hours, minutes, seconds }) {
+  daysDisplay.textContent = addLeadingZero(days);
+  hoursDisplay.textContent = addLeadingZero(hours);
+  minutesDisplay.textContent = addLeadingZero(minutes);
+  secondsDisplay.textContent = addLeadingZero(seconds);
+}
+
+let countInterval = null;
+
+function startCount() {
+  countInterval = setInterval(() => {
+    const timeRemain = userSelectedDate - Date.now();
+
+    if (timeRemain <= 0) {
+      clearInterval(countInterval);
+      updateTimerFace({
+        days: '00',
+        hours: '00',
+        minutes: '00',
+        seconds: '00',
+      });
+      startBtn.disabled = true;
+      dateTimepicker.disabled = false;
+      return;
     }
+
+    const time = convertMs(timeRemain);
+    updateTimerFace(time);
   }, 1000);
+}
+
+startBtn.addEventListener('click', () => {
+  if (!userSelectedDate) return;
+
+  if (countInterval) {
+    clearInterval(countInterval);
+  }
+
+  dateTimepicker.disabled = true;
+  startBtn.disabled = true;
+
+  startCount();
 });
-
-// Deactivate button
-startButton.disabled = true;
-inputField.disabled = false;
-//console.log(startButton.disabled);
-
-//test updateTimerInterface(days, hours, minutes, seconds) function
-//updateTimerInterface(interval);
-
-//console.log(Date.now());
-//console.log(convertUnixTimeToTime(1722538054379));
